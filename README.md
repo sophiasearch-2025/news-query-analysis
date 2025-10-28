@@ -62,4 +62,4 @@ Retorna resultados de noticias indexadas en ElasticSearch, incluyendo título, t
 
 * ElasticSearch debe estar corriendo (por ejemplo, usando `data-storage-manager/elasticsearch`).
 * Mantener el puerto 9200 expuesto mientras se realizan pruebas de conexión desde la API.
-* Documentar cambios y actualizaciones en este README para que los estudiantes sigan el flujo.
+* Documentar cambios y actualizaciones en este README
