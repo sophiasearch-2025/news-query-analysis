@@ -1,65 +1,53 @@
-# News Query Analysis - API FastAPI
+# 🔍 API de Búsqueda CSV con Filtros
 
-Este repositorio contiene la API para consultar noticias indexadas en ElasticSearch y scripts de análisis relacionados.
+Sistema completo de búsqueda y filtrado de datos CSV.
 
-## Estructura del repositorio
+## 🚀 Inicio Rápido
 
-```
-news-query-analysis/
-│
-├── api/
-│   └── news_api.py       ← FastAPI para búsqueda full-text
-├── scripts/              ← scripts de análisis opcionales
-└── README.md
-```
+### Backend
+bash
+cd backend
+npm install
+npm start
 
-## Requisitos
 
-* Python 3 + pip
-* FastAPI
-* Uvicorn
-* Elasticsearch Python client
+### Frontend
+bash
+cd frontend
+npm install
+npm run dev
 
-Se recomienda usar un entorno virtual (`venv`) para instalar dependencias.
 
-## Instalación de dependencias
+## 📖 Características
 
-Desde la carpeta `api/`:
+- Búsqueda inteligente por palabras clave
+- Filtros por fecha
+- Exportación de resultados
+- Estadísticas del dataset
+- Interfaz responsive
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+## 🛠️ Tecnologías
 
-Contenido recomendado para `requirements.txt`:
+- Backend: Node.js, Express
+- Frontend: React, Tailwind CSS
+- Parsing: csv-parser
 
-```
-elasticsearch==8.8.1
-fastapi==0.111.1
-uvicorn==0.25.0
-```
+## 📝 Uso
 
-## Ejecutar la API
+1. Coloca tu CSV en la raíz del proyecto
+2. Inicia el backend
+3. Inicia el frontend
+4. Carga el CSV desde la interfaz web
 
-```bash
-cd api
-uvicorn news_api:app --reload --host 0.0.0.0 --port 8000
-```
+## Metodo para hacer GET
 
-* `--reload` recarga automáticamente si hay cambios en el código.
-* `--host 0.0.0.0` permite acceder desde otras máquinas si el puerto está abierto.
+desde el navegador escribir:
+http://localhost:3000/api/buscar?q=tecnología
 
-## Probar la API
+http://localhost:3000/api/articulos
 
-```
-http://localhost:8000/search?q=palabra_clave
-```
+http://localhost:3000/api/estadisticas
 
-Retorna resultados de noticias indexadas en ElasticSearch, incluyendo título, texto, medio y URL.
+http://localhost:3000/api/info-dataset
 
-## Notas
-
-* ElasticSearch debe estar corriendo (por ejemplo, usando `data-storage-manager/elasticsearch`).
-* Mantener el puerto 9200 expuesto mientras se realizan pruebas de conexión desde la API.
-* Documentar cambios y actualizaciones en este README
+http://localhost:3000/api/filtros
