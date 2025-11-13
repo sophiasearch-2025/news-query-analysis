@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Upload, Filter, X, BarChart, Download, RefreshCw } from 'lucide-react';
+import Papa from 'papaparse';
 
 export default function CSVSearchClient() {
   const [datos, setDatos] = useState([]);
@@ -29,38 +30,28 @@ export default function CSVSearchClient() {
     setLoading(true);
     setError('');
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const texto = e.target.result;
-        const lineas = texto.split('\n');
-        const headers = lineas[0].split(',').map(h => h.trim());
+    // --- REEMPLAZA TU FileReader.onload CON ESTO ---
+    Papa.parse(archivo, {
+      header: true,         // Trata la primera fila como encabezados
+      skipEmptyLines: true, // Salta líneas vacías
+      complete: (results) => {
+        // 'results.data' es un array de objetos (¡justo lo que quieres!)
+        console.log("Datos parseados:", results.data);
+        setDatos(results.data);
         
-        const datosParseados = [];
-        for (let i = 1; i < lineas.length; i++) {
-          if (!lineas[i].trim()) continue;
-          
-          const valores = lineas[i].split(',');
-          const objeto = {};
-          headers.forEach((header, index) => {
-            objeto[header] = valores[index]?.trim() || '';
-          });
-          objeto.id = i;
-          datosParseados.push(objeto);
-        }
-
-        setDatos(datosParseados);
-        setResultados(datosParseados);
-        setCampos(headers);
-        calcularEstadisticas(datosParseados, headers);
+        // 'results.meta.fields' es un array con los nombres de las columnas
+        console.log("Campos:", results.meta.fields);
+        setCampos(results.meta.fields); 
+        
+        setResultados(results.data); // O tu lógica de estado
         setLoading(false);
-      } catch (err) {
-        setError('Error al procesar el archivo CSV');
+      },
+      error: (err) => {
+        setError(err.message);
         setLoading(false);
       }
-    };
-
-    reader.readAsText(archivo);
+    });
+    // --- FIN DEL REEMPLAZO ---
   };
 
   // Calcular estadísticas
