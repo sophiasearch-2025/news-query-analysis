@@ -1,10 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
-from src.api import parametros  # Tus rutas de búsqueda de noticias
-from src.api import users       # <--- TUS NUEVAS RUTAS DE USUARIOS
-from src.database import create_tables
-
-create_tables()
+from src.api import parametros, users
+from fastapi.middleware.cors import CORSMiddleware  
 
 app = FastAPI(
     title="API Sophia-Search",
@@ -12,21 +9,28 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# --- 1. Rutas de Búsqueda (Lo que ya tenías) ---
-app.include_router(
-    parametros.router, 
-    prefix="/api/v1"
+origins = [
+    "http://localhost",
+    "http://localhost:3000", 
+    "http://localhost:3001",
+    "http://localhost:5173", 
+    "http://127.0.0.1:5500"   
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,      
+    allow_credentials=True,
+    allow_methods=["*"],        
+    allow_headers=["*"],         
 )
 
-# --- 2. Rutas de Usuarios (Lo NUEVO) ---
-app.include_router(
-    users.router, 
-    prefix="/api/v1"
-)
+
+app.include_router(parametros.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 
 @app.get("/health", tags=["Monitoring"])
 def health_check():
-    """Verifica que la API esté viva."""
     return {"status": "ok", "system": "Sophia-Search API"}
 
 if __name__ == "__main__":

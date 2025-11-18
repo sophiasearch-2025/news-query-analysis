@@ -11,8 +11,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 def create_tables():
     print("Creando tablas en la base de datos si no existen...")
-    # Esta línea mágica lee todos los modelos (como Usuario)
-    # que heredan de 'Base' y crea las tablas en la BD.
     Base.metadata.create_all(bind=engine)
     print("Tablas creadas.")
 
