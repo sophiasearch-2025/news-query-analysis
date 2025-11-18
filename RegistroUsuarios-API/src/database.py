@@ -11,15 +11,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 def create_tables():
     print("Creando tablas en la base de datos si no existen...")
-    # Esta línea mágica lee todos los modelos (como Usuario)
-    # que heredan de 'Base' y crea las tablas en la BD.
     Base.metadata.create_all(bind=engine)
     print("Tablas creadas.")
 
 def get_db():
-    """
-    Función de Inyección de Dependencia para obtener la sesión de BD.
-    """
     db = SessionLocal()
     try:
         yield db

@@ -12,13 +12,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# --- 1. Rutas de Búsqueda (Lo que ya tenías) ---
+# --- 1. Rutas de Búsqueda ---
 app.include_router(
     parametros.router, 
     prefix="/api/v1"
 )
 
-# --- 2. Rutas de Usuarios (Lo NUEVO) ---
+# --- 2. Rutas de Usuarios ---
 app.include_router(
     users.router, 
     prefix="/api/v1"
@@ -26,7 +26,6 @@ app.include_router(
 
 @app.get("/health", tags=["Monitoring"])
 def health_check():
-    """Verifica que la API esté viva."""
     return {"status": "ok", "system": "Sophia-Search API"}
 
 if __name__ == "__main__":

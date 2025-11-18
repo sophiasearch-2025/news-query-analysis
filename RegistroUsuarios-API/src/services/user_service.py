@@ -26,9 +26,6 @@ class UserService:
         # Hashear la contraseña 
         hashed_password = self.get_password_hash(user_in.password)
 
-        # CREAR EL OBJETO 'Usuario' DE LA BD (T2)
-        # (¡Recuerda cambiar 'full_name' a 'nombre' en 'src/api/models.py'
-        # para que esta línea sea 100% correcta!)
         db_user = Usuario(
             nombre=user_in.nombre,
             email=user_in.email,
@@ -41,6 +38,4 @@ class UserService:
         db.commit()
         db.refresh(db_user) # Para obtener el ID creado por la BD
 
-        # Retornar el objeto de la BD
-        # FastAPI lo convertirá a UserResponse gracias al 'response_model'
         return db_user

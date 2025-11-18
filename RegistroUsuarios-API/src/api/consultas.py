@@ -3,7 +3,7 @@ from src.api.models import SearchResponse, NewsHit
 from fastapi import Depends
 import math
 
-# El índice a consultar. Usamos un wildcard como se decidió en PA-08 [cite: 97-101]
+# El índice a consultar.
 NEWS_INDEX = "news-*" 
 
 class SearchService:
@@ -21,8 +21,8 @@ class SearchService:
             "size": page_size,
             "query": {
                 "bool": {
-                    "must": [], # Consultas que *deben* coincidir (afectan puntaje)
-                    "filter": [] # Filtros exactos (no afectan puntaje, más rápidos)
+                    "must": [], # Consultas que *deben* coincidir
+                    "filter": [] # Filtros exactos
                 }
             },
             "highlight": { # Para generar el "content_snippet"
@@ -48,7 +48,7 @@ class SearchService:
         else:
             # Si no hay 'q', mostrar todo, ordenado por fecha
             query_body["query"]["bool"]["must"].append({"match_all": {}})
-            query_body["sort"] = [{"date": "desc"}] # Asumiendo un campo 'date'
+            query_body["sort"] = [{"date": "desc"}] 
 
         # B. Filtro por Fechas (date_from, date_to)
         date_range_filter = {"range": {"date": {}}}
@@ -57,13 +57,13 @@ class SearchService:
         if date_to:
             date_range_filter["range"]["date"]["lte"] = date_to
         
-        # Solo añadir el filtro si se especificó al menos una fecha
+        
         if date_from or date_to:
             query_body["query"]["bool"]["filter"].append(date_range_filter)
 
         # C. Filtro por Medios (media_list)
         if media_list:
-            # Usar 'source.keyword' para coincidencias exactas (Decisión PA-02) [cite: 49]
+            # Usar 'source.keyword' para coincidencias exactas
             query_body["query"]["bool"]["filter"].append(
                 {
                     "terms": {
@@ -90,7 +90,7 @@ class SearchService:
             if "highlight" in hit and "content" in hit["highlight"]:
                 snippet = " ... ".join(hit["highlight"]["content"])
             elif source.get("content"):
-                snippet = source.get("content")[:200] + "..." # Recorte manual
+                snippet = source.get("content")[:200] + "..." 
 
             formatted_items.append(
                 NewsHit(

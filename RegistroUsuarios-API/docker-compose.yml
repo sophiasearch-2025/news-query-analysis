@@ -1,8 +1,7 @@
-version: '3.8' # Puedes borrar esta línea si te molesta el 'WARN'
+version: '3.8' 
 
 services:
 
-  # Servicio de Búsqueda (El que tenías)
   elasticsearch-dev:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
     container_name: elasticsearch-dev
@@ -16,8 +15,7 @@ services:
     volumes:
       - elastic_data:/usr/share/elasticsearch/data
 
-  # ¡¡ESTA ES LA PARTE QUE FALTABA!!
-  # Servicio de Base de Datos (Tus usuarios T6)
+  
   postgres-db:
     image: postgres:15-alpine
     container_name: postgres-db
