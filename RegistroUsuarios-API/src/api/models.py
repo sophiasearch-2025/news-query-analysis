@@ -24,7 +24,6 @@ class SearchResponse(BaseModel):
 class UserCreate(BaseModel):
     nombre: str = Field(..., min_length=1, description="Nombre completo del usuario")
     email: EmailStr = Field(..., description="Correo electrónico válido")
-    # AGREGAMOS max_length=72
     password: str = Field(..., min_length=6, max_length=16, description="Contraseña (entre 6 y 16 caracteres)")
 
 class UserResponse(BaseModel):
