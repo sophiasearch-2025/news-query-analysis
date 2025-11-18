@@ -94,5 +94,4 @@ async def load_data():
 
 if __name__ == "__main__":
     # Desactivar verificaciones SSL/TLS si dan problemas en local
-    # (Solo si es estrictamente necesario, por ahora probamos sin esto)
     asyncio.run(load_data())

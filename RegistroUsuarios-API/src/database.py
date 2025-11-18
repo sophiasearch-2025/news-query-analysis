@@ -15,9 +15,6 @@ def create_tables():
     print("Tablas creadas.")
 
 def get_db():
-    """
-    Función de Inyección de Dependencia para obtener la sesión de BD.
-    """
     db = SessionLocal()
     try:
         yield db

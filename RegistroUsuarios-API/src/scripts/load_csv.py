@@ -26,11 +26,10 @@ async def load_csv_data():
     client = AsyncElasticsearch(hosts=[ES_HOST])
 
     # --- DEFINICIÓN DEL ESQUEMA (MAPPING) ---
-    # Esto es lo que arregla tu error. Le decimos explícitamente qué es cada cosa.
     mapping = {
         "mappings": {
             "properties": {
-                "date": {"type": "date"},  # <--- ¡ESTO ES LA CLAVE!
+                "date": {"type": "date"},  
                 "source": {
                     "type": "text",
                     "fields": {"keyword": {"type": "keyword"}}
@@ -69,7 +68,7 @@ async def load_csv_data():
 
     print("🚀 Reiniciando índice con la configuración correcta...")
     try:
-        # 1. Borrar índice viejo (el que está roto)
+        # 1. Borrar índice viejo
         if await client.indices.exists(index=INDEX_NAME):
              await client.indices.delete(index=INDEX_NAME)
              print("🗑️  Índice anterior borrado.")
