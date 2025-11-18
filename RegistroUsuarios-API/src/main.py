@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="API Sophia-Search",
-    description="Subsistema de Consultas y Gestión de Usuarios (Equipo 6)",
+    description="H5 Equipo",
     version="1.0.0"
 )
 
