@@ -2,42 +2,29 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./db'); // Módulo de conexión a BD
+// Importa la conexión al cliente de Elasticsearch
+const client = require('./db'); 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ENDPOINT: Información de la tabla
-app.get('/api/info', async (req, res) => {
-  try {
-    const query = `
-      SELECT column_name, data_type 
-      FROM information_schema.columns
-      WHERE table_name = 'Noticias';
-    `;
-    const { rows: campos } = await db.query(query);
-    const { rows: total } = await db.query('SELECT COUNT(*) FROM "Noticias"');
+const INDEX_NAME = process.env.ELASTIC_INDEX || 'noticias';
 
-    res.json({
-      success: true,
-      data: {
-        tabla: 'Noticias',
-        totalRegistros: parseInt(total[0].count, 10),
-        columnas: campos,
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Error al obtener información', mensaje: error.message });
-  }
-});
+// Función para transformar los resultados ('hits') de Elastic al formato del frontend
+const formatHits = (hits) => {
+  return hits.map(hit => ({
+    id_noticia: hit._id,
+    ...hit._source
+  }));
+};
 
-
-// ENDPOINT PRINCIPAL: Búsqueda
+// ENDPOINT: Búsqueda Principal
 app.get('/api/buscar', async (req, res) => {
   try {
     const {
       q,
+      pais,
       fechaInicio,
       fechaFin,
       ordenar = 'fecha_subida',
@@ -46,156 +33,147 @@ app.get('/api/buscar', async (req, res) => {
       limite = 10
     } = req.query;
 
-    let baseQuery = 'SELECT * FROM "Noticias"';
-    let whereClauses = [];
-    let queryParams = [];
+    // Cálculo de la posición inicial para la paginación de Elastic
+    const from = (parseInt(pagina) - 1) * parseInt(limite);
+    const size = parseInt(limite);
 
-    // Búsqueda por 'titulo'
+    // Estructura base de la consulta bool de Elasticsearch
+    const esQuery = {
+      bool: {
+        must: [], // Cláusulas que deben coincidir (relevancia)
+        filter: [] // Cláusulas que deben coincidir (filtrado, sin impacto en score)
+      }
+    };
+
+    // 1. Manejo del Query de Texto Libre (q)
     if (q) {
-      queryParams.push(`%${q.toLowerCase()}%`);
-      whereClauses.push(`titulo ILIKE $${queryParams.length}`);
+      esQuery.bool.must.push({
+        multi_match: {
+          query: q,
+          fields: ['titulo', 'texto_noticia', 'medio.nombre'],
+          fuzziness: 'AUTO' // Permite pequeñas incorrecciones
+        }
+      });
+    } else {
+      // Si no hay query, usar match_all para devolver todos los documentos
+      esQuery.bool.must.push({ match_all: {} });
     }
 
-    // Filtro por rango de fechas
-    if (fechaInicio) {
-      queryParams.push(fechaInicio);
-      whereClauses.push(`fecha_subida >= $${queryParams.length}`);
-    }
-    if (fechaFin) {
-      queryParams.push(fechaFin);
-      whereClauses.push(`fecha_subida <= $${queryParams.length}`);
+    // 2. Filtro de País
+    if (pais) {
+      esQuery.bool.must.push({
+        match: { "medio.pais": pais }
+      });
     }
 
-    if (whereClauses.length > 0) {
-      baseQuery += ' WHERE ' + whereClauses.join(' AND ');
+    // 3. Rango de Fechas (usa 'filter' para mejor rendimiento en rango)
+    if (fechaInicio || fechaFin) {
+      const rangeConfig = {};
+      if (fechaInicio) rangeConfig.gte = fechaInicio; // Greater than or equal
+      if (fechaFin) rangeConfig.lte = fechaFin;   // Less than or equal
+      esQuery.bool.filter.push({ range: { fecha_subida: rangeConfig } });
     }
 
-    // Conteo total para paginación
-    const countQuery = `SELECT COUNT(*) FROM (${baseQuery}) AS subquery`;
-    const { rows: countRows } = await db.query(countQuery, queryParams);
-    const totalResultados = parseInt(countRows[0].count, 10);
+    // Ejecutar la consulta en Elasticsearch
+    const result = await client.search({
+      index: INDEX_NAME,
+      body: {
+        from,
+        size,
+        query: esQuery,
+        sort: [{ [ordenar]: { order: orden } }] // Ordenamiento dinámico
+      }
+    });
 
-    // Ordenamiento (con validación para evitar Inyección SQL)
-    const columnasValidas = ['id_noticia', 'titulo', 'fecha_subida', 'largo_noticia', 'url'];
-    const ordenValido = ['asc', 'desc'];
-    
-    const columnaOrden = columnasValidas.includes(ordenar) ? `"${ordenar}"` : 'fecha_subida';
-    const direccionOrden = ordenValido.includes(orden) ? orden : 'desc';
-    
-    baseQuery += ` ORDER BY ${columnaOrden} ${direccionOrden}`;
-
-    // Paginación
-    const paginaNum = parseInt(pagina);
-    const limiteNum = parseInt(limite);
-    const offset = (paginaNum - 1) * limiteNum;
-    
-    queryParams.push(limiteNum);
-    baseQuery += ` LIMIT $${queryParams.length}`;
-    queryParams.push(offset);
-    baseQuery += ` OFFSET $${queryParams.length}`;
-
-    // Ejecutar Consulta
-    const { rows: resultadosPaginados } = await db.query(baseQuery, queryParams);
+    const totalResultados = result.hits.total.value;
 
     res.json({
       success: true,
-      data: resultadosPaginados,
+      data: formatHits(result.hits.hits),
       paginacion: {
         total: totalResultados,
-        pagina: paginaNum,
-        limite: limiteNum,
-        totalPaginas: Math.ceil(totalResultados / limiteNum)
+        pagina: parseInt(pagina),
+        limite: parseInt(limite),
+        totalPaginas: Math.ceil(totalResultados / size)
       },
-      filtrosAplicados: { q, fechaInicio, fechaFin }
+      filtrosAplicados: { q, pais, fechaInicio, fechaFin }
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Error en la búsqueda',
-      mensaje: error.message
-    });
+    console.error('Error en búsqueda:', error.message);
+    // Manejo específico si el índice no existe (404 de Elastic)
+    if (error.meta && error.meta.statusCode === 404) {
+        return res.status(404).json({ 
+            success: false, 
+            error: `El índice '${INDEX_NAME}' no existe. Asegúrate de ejecutar los scripts de carga de datos primero.` 
+        });
+    }
+    res.status(500).json({ success: false, error: 'Error interno del servidor', mensaje: error.message });
   }
 });
 
-// ENDPOINT: Obtener todas las noticias
-app.get('/api/noticias', async (req, res) => {
-  try {
-    const { rows } = await db.query('SELECT * FROM "Noticias" ORDER BY fecha_subida DESC');
+// ENDPOINT: Info del Dataset (metadatos para construir la UI)
+app.get('/api/info', async (req, res) => {
+    // Se definen las columnas hardcodeadas para la UI, ya que la estructura es conocida
     res.json({
-      success: true,
-      data: rows,
-      total: rows.length
+        success: true,
+        data: {
+            columnas: [
+                { column_name: 'titulo' },
+                { column_name: 'texto_noticia' },
+                { column_name: 'fecha_subida' },
+                { column_name: 'url' },
+                { column_name: 'medio.nombre' },
+                { column_name: 'medio.pais' }
+            ]
+        }
     });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Error al obtener noticias', mensaje: error.message });
-  }
 });
 
-// ENDPOINT: Obtener una noticia por ID
-app.get('/api/noticias/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ success: false, error: 'ID no válido' });
-    }
-    
-    const { rows } = await db.query('SELECT * FROM "Noticias" WHERE id_noticia = $1', [id]);
-    
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Noticia no encontrada' });
-    }
-    
-    res.json({ success: true, data: rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Error al obtener noticia', mensaje: error.message });
-  }
-});
-
-
-// ENDPOINT: Estadísticas
+// ENDPOINT: Estadísticas (Agregaciones de Elastic)
 app.get('/api/estadisticas', async (req, res) => {
   try {
-    const totalQuery = db.query('SELECT COUNT(*) AS totalRegistros FROM "Noticias"');
-    const fechasQuery = db.query('SELECT MIN(fecha_subida) AS mas_antiguo, MAX(fecha_subida) AS mas_reciente FROM "Noticias"');
-    
-    const [total, fechas] = await Promise.all([totalQuery, fechasQuery]);
+    // Se usa size: 0 para evitar cargar documentos, solo calcular agregaciones
+    const result = await client.search({
+      index: INDEX_NAME,
+      size: 0,
+      body: {
+        aggs: {
+          min_fecha: { min: { field: 'fecha_subida' } },
+          max_fecha: { max: { field: 'fecha_subida' } },
+          // Agregación para contar valores únicos (cardinality)
+          total_paises: { cardinality: { field: 'medio.pais.keyword' } } 
+        }
+      }
+    });
 
     res.json({
       success: true,
       data: {
-        totalNoticias: parseInt(total.rows[0].totalregistros, 10),
-        rangoFechas: fechas.rows[0],
+        totalNoticias: result.hits.total.value,
+        rangoFechas: {
+          mas_antiguo: result.aggregations.min_fecha.value_as_string,
+          mas_reciente: result.aggregations.max_fecha.value_as_string
+        },
+        paisesUnicos: result.aggregations.total_paises.value
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Error al obtener estadísticas', mensaje: error.message });
+     // Respuesta por defecto si hay un error (ej. índice vacío o inexistente)
+     res.json({
+        success: true, 
+        data: { totalNoticias: 0, rangoFechas: {}, paisesUnicos: 0 }
+     });
   }
 });
 
-
-// Manejo de errores 404
+// Manejo de errores 404 para rutas no definidas
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint no encontrado',
-    endpoints_disponibles: [ 
-      'GET /api/info',
-      'GET /api/buscar',
-      'GET /api/noticias',
-      'GET /api/noticias/:id',
-      'GET /api/estadisticas'
-    ]
-  });
+  res.status(404).json({ success: false, error: 'Endpoint no encontrado' });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`\n API de Búsqueda (PostgreSQL - Noticias) corriendo en http://localhost:${PORT}`);
-  console.log(`\n Endpoints disponibles:`);
-  console.log(`   GET  /api/info          - Información de la tabla`);
-  console.log(`   GET  /api/buscar        - Búsqueda con filtros`);
-  console.log(`   GET  /api/noticias      - Ver todas las noticias`);
-  console.log(`   GET  /api/noticias/:id  - Ver una noticia`);
-  console.log(`   GET  /api/estadisticas  - Estadísticas simples\n`);
+  console.log(`\n🚀 API Gateway (Elasticsearch) corriendo en http://localhost:${PORT}`);
+  console.log(`📡 Esperando índice: ${INDEX_NAME}`);
 });

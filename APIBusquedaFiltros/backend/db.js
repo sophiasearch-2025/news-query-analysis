@@ -1,25 +1,23 @@
 // backend/db.js
-const { Pool } = require('pg');
+const { Client } = require('@elastic/elasticsearch');
 require('dotenv').config();
 
-// Configuración de la conexión usando env
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-
-// Mensaje de éxito al conectar
-pool.connect((err, client, release) => {
-  if (err) {
-    return console.error('Error al conectar con PostgreSQL:', err.stack);
+// Inicialización del cliente de Elasticsearch
+const client = new Client({
+  node: process.env.ELASTIC_NODE || 'http://localhost:9200',
+  // Configuración de autenticación (ejemplo de X-Pack security)
+  /*
+  auth: {
+    username: process.env.ELASTIC_USERNAME,
+    password: process.env.ELASTIC_PASSWORD
   }
-  console.log('Conexión a PostgreSQL establecida exitosamente.');
-  client.release();
+  */
 });
 
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-};
+// Verificación asíncrona de la conexión e impresión de estado en consola
+client.info()
+  .then(response => console.log(`✅ Conectado a Elasticsearch: ${response.name}`))
+  .catch(error => console.error('❌ Error conectando a Elasticsearch:', error));
+
+// Exporta la instancia del cliente para ser usada por el servidor Express
+module.exports = client;
