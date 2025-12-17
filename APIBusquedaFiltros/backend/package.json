@@ -1,7 +1,7 @@
 {
-  "name": "search-api-csv-backend",
+  "name": "search-api",
   "version": "1.0.0",
-  "description": "API REST para búsqueda CSV",
+  "description": "API REST para búsqueda mediante ElasticSearch",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
