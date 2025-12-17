@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    container_name: backend_news_api
+    network_mode: "host"
+    environment:
+      - PORT=3000
+      - ELASTIC_NODE=http://localhost:9200
+      - ELASTIC_INDEX=noticias
+    restart: on-failure
