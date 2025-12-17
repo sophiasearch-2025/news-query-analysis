@@ -1,0 +1,26 @@
+// backend/db.js
+import { Client } from "@elastic/elasticsearch";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+// Inicialización del cliente de Elasticsearch
+const client = new Client({
+  node: process.env.ELASTIC_NODE || "http://localhost:9200",
+  // Configuración de autenticación (ejemplo de X-Pack security)
+  /*
+  auth: {
+    username: process.env.ELASTIC_USERNAME,
+    password: process.env.ELASTIC_PASSWORD
+  }
+  */
+});
+
+// Verificación asíncrona de la conexión e impresión de estado en consola
+client
+  .info()
+  .then((response) => console.log(`✅ Conectado a Elasticsearch: ${response.name}`))
+  .catch((error) => console.error("❌ Error conectando a Elasticsearch:", error));
+
+// Exporta la instancia del cliente para ser usada por el servidor Express
+export default client;
