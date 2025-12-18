@@ -1,14 +1,14 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const client = require("./db").default;
+const client = require("./db");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const INDEX_NAME = process.env.ELASTIC_INDEX || "noticias";
-const MAX_RESULTS_FOR_JS = 1000;
+const MAX_RESULTS_FOR_JS = 2000;
 
 const formatHit = (hit) => ({
   id: hit._id,
@@ -26,6 +26,7 @@ const parseDateJS = (dateString) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
+// --- ENDPOINT DE BÚSQUEDA ---
 app.get("/api/search", async (req, res) => {
   try {
     const { q, country, media_outlet, date_from, date_to, page = 1, limit = 10 } = req.query;
@@ -36,7 +37,6 @@ app.get("/api/search", async (req, res) => {
     const esQuery = {
       bool: {
         must: [],
-        filter: [],
       },
     };
 
@@ -52,19 +52,6 @@ app.get("/api/search", async (req, res) => {
       esQuery.bool.must.push({ match_all: {} });
     }
 
-    // 2. Filtros de Elastic
-    if (country) {
-      esQuery.bool.filter.push({
-        term: { country: country },
-      });
-    }
-
-    if (media_outlet) {
-      esQuery.bool.filter.push({
-        term: { media_outlet: media_outlet },
-      });
-    }
-
     const result = await client.search({
       index: INDEX_NAME,
       size: MAX_RESULTS_FOR_JS,
@@ -76,6 +63,14 @@ app.get("/api/search", async (req, res) => {
       formatted._parsedDate = parseDateJS(formatted.date);
       return formatted;
     });
+
+    if (country) {
+      processedHits = processedHits.filter((h) => h.country === country);
+    }
+
+    if (media_outlet) {
+      processedHits = processedHits.filter((h) => h.media_outlet === media_outlet);
+    }
 
     processedHits = processedHits.filter((h) => h._parsedDate !== null);
 
@@ -113,33 +108,29 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
+// --- ENDPOINT DE FILTROS ---
 app.get("/api/filters", async (req, res) => {
   try {
     const result = await client.search({
       index: INDEX_NAME,
-      size: 0,
-      aggs: {
-        unique_media_outlets: {
-          terms: { field: "media_outlet", size: 100 },
-        },
-        unique_countries: {
-          terms: { field: "country", size: 50 },
-        },
-      },
-    });
-
-    const dateScan = await client.search({
-      index: INDEX_NAME,
-      size: 1000,
-      _source: ["date"],
+      size: MAX_RESULTS_FOR_JS,
+      _source: ["media_outlet", "country", "date"],
       query: { match_all: {} },
     });
 
+    const hits = result.hits.hits;
+    const mediaSet = new Set();
+    const countrySet = new Set();
     let minTime = Infinity;
     let maxTime = -Infinity;
 
-    dateScan.hits.hits.forEach((hit) => {
-      const d = parseDateJS(hit._source.date);
+    hits.forEach((hit) => {
+      const src = hit._source;
+
+      if (src.media_outlet) mediaSet.add(src.media_outlet);
+      if (src.country) countrySet.add(src.country);
+
+      const d = parseDateJS(src.date);
       if (d) {
         const time = d.getTime();
         if (time < minTime) minTime = time;
@@ -151,8 +142,8 @@ app.get("/api/filters", async (req, res) => {
       success: true,
       data: {
         total_news: result.hits.total.value,
-        media_outlets: result.aggregations.unique_media_outlets.buckets.map((b) => b.key),
-        countries: result.aggregations.unique_countries.buckets.map((b) => b.key),
+        media_outlets: Array.from(mediaSet).sort(),
+        countries: Array.from(countrySet).sort(),
         date_range: {
           min: minTime === Infinity ? null : new Date(minTime).toISOString().split("T")[0],
           max: maxTime === -Infinity ? null : new Date(maxTime).toISOString().split("T")[0],
@@ -160,12 +151,12 @@ app.get("/api/filters", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error obteniendo filtros:", error);
+    console.error("Error obteniendo filtros:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado en puerto ${PORT}`);
+  console.log(`Servidor listo en puerto ${PORT}`);
 });
